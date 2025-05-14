@@ -7,14 +7,14 @@ df = pd.read_csv("Situations_Data/situations_flat.csv")
 df = df.iloc[51:]
 scenarios = df[["Emotion", "Factor", "Scenario"]].dropna().to_dict("records")
 
-mixtral_model_id = "mistralai/Mistral-7B-v0.1"
-mixtral_tokenizer = AutoTokenizer.from_pretrained(mixtral_model_id)
-mixtral_model = AutoModelForCausalLM.from_pretrained(
-    mixtral_model_id,
+mistral_model_id = "mistralai/Mistral-7B-v0.1"
+mistral_tokenizer = AutoTokenizer.from_pretrained(mistral_model_id)
+mistral_model = AutoModelForCausalLM.from_pretrained(
+    mistral_model_id,
     device_map="auto",
     torch_dtype=torch.float16
 )
-mixtral_model.eval()
+mistral_model.eval()
 
 classifier_model = "j-hartmann/emotion-english-distilroberta-base"
 tokenizer_classifier = AutoTokenizer.from_pretrained(classifier_model)
@@ -28,20 +28,20 @@ label_mapping = {
 
 emotion_labels = model_classifier.config.id2label
 
-def query_mixtral(prompt):
+def query_mistral(prompt):
     system_prompt = "Imagine you are the protagonist in this situation. How would you feel?"
     full_prompt = f"{system_prompt}\n\n{prompt}"
     
-    inputs = mixtral_tokenizer(full_prompt, return_tensors="pt").to(mixtral_model.device)
+    inputs = mistral_tokenizer(full_prompt, return_tensors="pt").to(mistral_model.device)
     with torch.no_grad():
-        outputs = mixtral_model.generate(
+        outputs = mistral_model.generate(
             **inputs,
             max_new_tokens=70,
             do_sample=True,
             temperature=0.7,
-            pad_token_id=mixtral_tokenizer.eos_token_id
+            pad_token_id=mistral_tokenizer.eos_token_id
         )
-    decoded = mixtral_tokenizer.decode(outputs[0], skip_special_tokens=True)
+    decoded = mistral_tokenizer.decode(outputs[0], skip_special_tokens=True)
     return decoded.replace(full_prompt, "").strip()
 
 def classify_emotion(text):
@@ -63,7 +63,7 @@ for idx, row in enumerate(scenarios):
 
     for _ in range(5):
         try:
-            llm_response = query_mixtral(prompt)
+            llm_response = query_mistral(prompt)
             print("LLM response:", llm_response)
             evoked_scores.append(classify_emotion(llm_response))
         except Exception as e:
@@ -105,7 +105,7 @@ for idx, row in enumerate(scenarios):
         print(f"    Top {i+1}: {label} ({score:.2f})")
 
 results_df = pd.DataFrame(results)
-results_df.to_csv("mixtral_301_to_end_empathy_eval.csv", index=False)
+results_df.to_csv("mistral_301_to_end_empathy_eval.csv", index=False)
 
 accuracy = results_df["Match"].mean()
 print(f"\n Empathy Classification Accuracy: {accuracy:.2%}")
